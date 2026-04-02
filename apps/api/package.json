@@ -1,5 +1,5 @@
 {
-  "name": "@figma-agent/api",
+  "name": "@mastra-starter/api",
   "version": "0.0.1",
   "description": "Production-ready NestJS boilerplate",
   "author": "krylov@vasily.dev",

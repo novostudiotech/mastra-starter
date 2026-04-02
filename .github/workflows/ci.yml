@@ -40,7 +40,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Lint code
-        run: pnpm --filter @figma-agent/api lint:ci
+        run: pnpm --filter @mastra-starter/api lint:ci
 
   unit-tests:
     name: Unit Tests
@@ -66,7 +66,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: pnpm --filter @figma-agent/api test:unit
+        run: pnpm --filter @mastra-starter/api test:unit
         env:
           CI: true
 
@@ -169,7 +169,7 @@ jobs:
         run: pnpm build
 
       - name: Run E2E tests
-        run: pnpm --filter @figma-agent/api test:e2e
+        run: pnpm --filter @mastra-starter/api test:e2e
 
   docker-build-and-scan:
     name: Docker Build and Security Scan

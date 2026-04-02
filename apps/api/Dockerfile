@@ -29,7 +29,7 @@ RUN pnpm install --frozen-lockfile --offline
 COPY . .
 
 # Build the API application
-RUN pnpm --filter @figma-agent/api build
+RUN pnpm --filter @mastra-starter/api build
 
 # Production stage
 FROM node:${nodeVersion}-alpine AS api

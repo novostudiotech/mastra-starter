@@ -134,12 +134,12 @@ packages:
   "name": "figma-design-agent",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @figma-agent/api start:dev",
-    "dev:plugin": "pnpm --filter @figma-agent/plugin dev",
-    "dev:web": "pnpm --filter @figma-agent/web dev",
+    "dev": "pnpm --filter @mastra-starter/api start:dev",
+    "dev:plugin": "pnpm --filter @mastra-starter/plugin dev",
+    "dev:web": "pnpm --filter @mastra-starter/web dev",
     "dev:all": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
-    "build:plugin": "pnpm --filter @figma-agent/plugin build",
+    "build:plugin": "pnpm --filter @mastra-starter/plugin build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck"
   },
@@ -154,9 +154,9 @@ packages:
 ```json
 // apps/api/package.json
 {
-  "name": "@figma-agent/api",
+  "name": "@mastra-starter/api",
   "dependencies": {
-    "@figma-agent/shared": "workspace:*",
+    "@mastra-starter/shared": "workspace:*",
     "@mastra/core": "...",
     "@mastra/nestjs": "...",
     "@mastra/memory": "..."
@@ -165,9 +165,9 @@ packages:
 
 // apps/plugin/package.json
 {
-  "name": "@figma-agent/plugin",
+  "name": "@mastra-starter/plugin",
   "dependencies": {
-    "@figma-agent/shared": "workspace:*",
+    "@mastra-starter/shared": "workspace:*",
     "@copilotkit/react-core": "...",
     "@copilotkit/react-ui": "..."
   }
@@ -175,15 +175,15 @@ packages:
 
 // apps/web/package.json
 {
-  "name": "@figma-agent/web",
+  "name": "@mastra-starter/web",
   "dependencies": {
-    "@figma-agent/shared": "workspace:*"
+    "@mastra-starter/shared": "workspace:*"
   }
 }
 
 // packages/shared/package.json
 {
-  "name": "@figma-agent/shared",
+  "name": "@mastra-starter/shared",
   "main": "./src/index.ts"
 }
 ```
@@ -374,14 +374,14 @@ cp ../platform/vitest.config.ts .
 # TODO: apps/web/ (Phase 2) — использовать platform/packages/platform-ui как референс
 
 # 7. Добавляем Mastra + CopilotKit в api
-pnpm --filter @figma-agent/api add @mastra/core @mastra/nestjs @mastra/memory @mastra/pg
-pnpm --filter @figma-agent/api add @ag-ui/mastra @ag-ui/core @copilotkit/runtime
-pnpm --filter @figma-agent/api add @ai-sdk/anthropic
+pnpm --filter @mastra-starter/api add @mastra/core @mastra/nestjs @mastra/memory @mastra/pg
+pnpm --filter @mastra-starter/api add @ag-ui/mastra @ag-ui/core @copilotkit/runtime
+pnpm --filter @mastra-starter/api add @ai-sdk/anthropic
 
 # 8. Настраиваем plugin workspace
 cd apps/plugin && pnpm init && cd ../..
-pnpm --filter @figma-agent/plugin add react react-dom @copilotkit/react-core @copilotkit/react-ui
-pnpm --filter @figma-agent/plugin add -D esbuild typescript @types/react
+pnpm --filter @mastra-starter/plugin add react react-dom @copilotkit/react-core @copilotkit/react-ui
+pnpm --filter @mastra-starter/plugin add -D esbuild typescript @types/react
 
 # 9. Настраиваем shared workspace
 cd packages/shared && pnpm init && cd ../..
@@ -1615,13 +1615,13 @@ Plugin не поддерживает HMR. Рабочий цикл:
 
 ```bash
 # Генерация миграции из изменений entities
-pnpm --filter @figma-agent/api typeorm migration:generate src/migrations/AddSubscription
+pnpm --filter @mastra-starter/api typeorm migration:generate src/migrations/AddSubscription
 
 # Применить миграции
-pnpm --filter @figma-agent/api typeorm migration:run
+pnpm --filter @mastra-starter/api typeorm migration:run
 
 # Откатить последнюю
-pnpm --filter @figma-agent/api typeorm migration:revert
+pnpm --filter @mastra-starter/api typeorm migration:revert
 ```
 
 > В `apps/api/package.json` добавить скрипт:
@@ -1698,7 +1698,7 @@ pnpm --filter @figma-agent/api typeorm migration:revert
     "sourceMap": true,
     "baseUrl": ".",
     "paths": {
-      "@figma-agent/shared": ["packages/shared/src"]
+      "@mastra-starter/shared": ["packages/shared/src"]
     }
   }
 }
