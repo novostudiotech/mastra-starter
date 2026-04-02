@@ -1,0 +1,8 @@
+node_modules
+.git
+*.md
+apps/plugin/node_modules
+packages/shared/node_modules
+.mastra
+.env*
+!apps/api/.env.example

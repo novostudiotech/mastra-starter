@@ -1,0 +1,148 @@
+import { betterAuth } from 'better-auth';
+import { bearer, emailOTP, jwt, openAPI } from 'better-auth/plugins';
+import { Pool } from 'pg';
+import { uuidv7 } from 'uuidv7';
+
+/**
+ * OTP type from Better Auth emailOTP plugin
+ */
+export type BetterAuthOtpType = 'sign-in' | 'email-verification' | 'forget-password';
+
+/**
+ * Callback function for sending OTP emails
+ */
+export type SendOtpCallback = (params: {
+  email: string;
+  otp: string;
+  type: BetterAuthOtpType;
+}) => Promise<void>;
+
+/**
+ * Better Auth configuration options
+ */
+export interface BetterAuthConfigOptions {
+  databaseUrl: string;
+  secret: string;
+  /**
+   * Base URL of the auth server (e.g., "https://api.example.com")
+   * Used for generating callback URLs and links
+   */
+  baseURL?: string;
+  /**
+   * Trusted origins for CORS (array of origin patterns)
+   */
+  trustedOrigins: string[];
+  /**
+   * Whether running in test mode
+   */
+  isTest: boolean;
+  /**
+   * Whether running in production mode (affects logging)
+   */
+  isProd: boolean;
+  /**
+   * Figma OAuth client ID (optional, enables Figma social login when provided)
+   */
+  figmaClientId?: string;
+  /**
+   * Figma OAuth client secret (optional, enables Figma social login when provided)
+   */
+  figmaClientSecret?: string;
+  /**
+   * Optional callback to send OTP emails.
+   * If not provided, OTP sending will be disabled (logs a warning).
+   */
+  sendOtp?: SendOtpCallback;
+  /**
+   * OTP expiration time in seconds (default: 300 = 5 minutes)
+   */
+  otpExpiresIn?: number;
+}
+
+/**
+ * Creates and returns a Better Auth instance
+ * @param options - Configuration options containing databaseUrl, secret, and optional sendOtp callback
+ * @returns Better Auth instance
+ */
+export function getBetterAuthConfig({
+  databaseUrl,
+  secret,
+  baseURL,
+  trustedOrigins,
+  isTest,
+  isProd,
+  sendOtp,
+  otpExpiresIn = 300,
+  figmaClientId,
+  figmaClientSecret,
+}: BetterAuthConfigOptions) {
+  return betterAuth({
+    database: new Pool({
+      connectionString: databaseUrl,
+    }),
+    secret,
+    baseURL,
+    basePath: '/auth',
+    trustedOrigins,
+    hooks: {}, // minimum required to use hook decorators
+    ...(figmaClientId && figmaClientSecret
+      ? {
+          socialProviders: {
+            figma: {
+              clientId: figmaClientId,
+              clientSecret: figmaClientSecret,
+            },
+          },
+        }
+      : {}),
+    emailAndPassword: {
+      enabled: true,
+      requireEmailVerification: !isTest, // Disable email verification in test environment
+    },
+    plugins: [
+      openAPI({ disableDefaultReference: true }),
+      emailOTP({
+        otpLength: 6,
+        expiresIn: otpExpiresIn,
+        sendVerificationOnSignUp: !isTest, // Don't send OTP emails in test environment
+        async sendVerificationOTP({ email, otp, type }) {
+          if (sendOtp) {
+            // Don't await to avoid timing attacks (as recommended by Better Auth docs)
+            sendOtp({ email, otp, type }).catch((error) => {
+              console.error(`Failed to send OTP email to ${email}:`, error);
+            });
+          } else {
+            // Only log OTP in development (never in production for security)
+            if (!isProd) {
+              console.warn(`[DEV] OTP for ${email}: ${otp} (sendOtp callback not configured)`);
+            } else {
+              console.warn(`OTP requested for ${email} but sendOtp callback not configured`);
+            }
+          }
+        },
+      }),
+      bearer(),
+      jwt(),
+    ],
+    user: {
+      modelName: 'user',
+    },
+    session: {
+      modelName: 'session',
+    },
+    account: {
+      modelName: 'account',
+    },
+    verification: {
+      modelName: 'verification',
+    },
+    advanced: {
+      database: {
+        generateId: () => uuidv7(),
+      },
+      // Disable origin check in test environment to allow same-origin requests without Origin header
+      // This is safe for tests as they run in a controlled environment
+      disableOriginCheck: isTest,
+    },
+  });
+}

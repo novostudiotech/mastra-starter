@@ -1,0 +1,21 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+auditConfig:
+  ignoreGhsas:
+    - GHSA-h25m-26qc-wcjf
+    - GHSA-3ppc-4f35-3m26
+
+ignoredBuiltDependencies:
+  - '@scarf/scarf'
+
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - esbuild
+  - sharp
+  - unrs-resolver
+
+patchedDependencies:
+  better-auth@1.4.18: apps/api/patches/better-auth+1.4.18.patch
+  better-call: apps/api/patches/better-call+1.1.7.patch

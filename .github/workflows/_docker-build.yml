@@ -1,0 +1,146 @@
+name: Build docker image
+
+on:
+  workflow_call:
+    inputs:
+      image:
+        type: string
+        required: true
+        description: 'Full image path including registry (e.g., ghcr.io/owner/image or registry.digitalocean.com/namespace/image)'
+      push:
+        type: boolean
+        default: false
+      target:
+        type: string
+      build-args:
+        type: string
+      scan:
+        type: boolean
+        default: false
+        description: 'Run Trivy security scan after build'
+      platforms:
+        type: string
+        required: false
+        description: 'Platforms to build for (e.g., linux/amd64). If not specified, builds for runner platform.'
+    secrets:
+      DIGITALOCEAN_CD_ACCESS_TOKEN:
+        required: false
+
+jobs:
+  build_and_push:
+    name: Build and push image
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Lowercase image name
+        run: echo "IMAGE=$(echo '${{ inputs.image }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Detect and validate registry
+        run: |
+          if [[ "${{ env.IMAGE }}" == ghcr.io/* ]]; then
+            echo "REGISTRY_PROVIDER=github" >> $GITHUB_ENV
+            echo "✅ Detected GitHub Container Registry"
+          elif [[ "${{ env.IMAGE }}" == registry.digitalocean.com/* ]]; then
+            echo "REGISTRY_PROVIDER=digitalocean" >> $GITHUB_ENV
+            echo "✅ Detected DigitalOcean Registry"
+          else
+            echo "❌ Error: Unsupported registry URL. Only ghcr.io/* and registry.digitalocean.com/* are supported."
+            echo "   Provided image: ${{ env.IMAGE }}"
+            exit 1
+          fi
+
+      - name: Get Branch and Image
+        if: inputs.push
+        run: |
+          branch="${GITHUB_REF#refs/heads/}"
+          echo "BRANCH=${branch}" >> $GITHUB_ENV
+          echo "DOCKER_IMAGE=${{ env.IMAGE }}:${branch}" >> $GITHUB_ENV
+
+      - name: Set local image
+        if: '!inputs.push'
+        run: echo "DOCKER_IMAGE=${{ env.IMAGE }}:local" >> $GITHUB_ENV
+
+      # DigitalOcean login
+      - name: Install doctl
+        if: inputs.push && env.REGISTRY_PROVIDER == 'digitalocean'
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_CD_ACCESS_TOKEN }}
+
+      - name: Log in to DigitalOcean registry
+        if: inputs.push && env.REGISTRY_PROVIDER == 'digitalocean'
+        run: doctl registry login --expiry-seconds 3600
+
+      # GitHub Container Registry login
+      - name: Log in to GitHub Container Registry
+        if: inputs.push && env.REGISTRY_PROVIDER == 'github'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: ${{ inputs.push }}
+          tags: ${{ env.DOCKER_IMAGE }}
+          load: ${{ !inputs.push && inputs.scan }}
+          cache-from: |
+            type=gha,scope=${{ inputs.target }}
+            ${{ inputs.push && format('type=registry,ref={0}:{1}-cache', env.IMAGE, inputs.target) || '' }}
+          cache-to: |
+            type=gha,mode=max,scope=${{ inputs.target }}
+            ${{ inputs.push && format('type=registry,ref={0}:{1}-cache,mode=max', env.IMAGE, inputs.target) || '' }}
+          target: ${{ inputs.target }}
+          build-args: ${{ inputs.build-args }}
+          platforms: ${{ inputs.platforms }}
+          # Disable provenance/sbom when using --load (local export) as it doesn't support manifest lists
+          provenance: ${{ inputs.push }}
+          sbom: ${{ inputs.push }}
+
+      - name: Run Trivy vulnerability scanner
+        if: inputs.scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.DOCKER_IMAGE }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Check if Trivy SARIF file exists
+        if: always() && inputs.scan
+        id: check_sarif
+        run: |
+          if [ -f 'trivy-results.sarif' ]; then
+            echo "file_exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Trivy SARIF file found"
+          else
+            echo "file_exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Trivy SARIF file not found (Docker build may have failed)"
+          fi
+
+      # - name: Upload Trivy results to GitHub Security
+      #   if: always() && inputs.scan && steps.check_sarif.outputs.file_exists == 'true'
+      #   uses: github/codeql-action/upload-sarif@v4
+      #   with:
+      #     sarif_file: 'trivy-results.sarif'
+      # NOTE: Disabled - requires GitHub Advanced Security for private repositories
+
+      - name: Display Trivy results
+        if: always() && inputs.scan && steps.check_sarif.outputs.file_exists == 'true'
+        run: |
+          echo "### Trivy Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "Scan completed. Results saved to trivy-results.sarif" >> $GITHUB_STEP_SUMMARY
+          echo "Critical and High severity vulnerabilities detected (if any) are shown in the scan output above." >> $GITHUB_STEP_SUMMARY

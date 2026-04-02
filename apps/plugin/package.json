@@ -1,0 +1,22 @@
+{
+  "name": "@figma-agent/plugin",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@copilotkit/react-core": "^1.51.0",
+    "@copilotkit/react-ui": "^1.51.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.5.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "figma-design-agent",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter @figma-agent/api dev",
+    "dev:plugin": "pnpm --filter @figma-agent/plugin dev",
+    "dev:web": "pnpm --filter @figma-agent/web dev",
+    "dev:all": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "build:plugin": "pnpm --filter @figma-agent/plugin build",
+    "studio": "pnpm --filter @figma-agent/api studio",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

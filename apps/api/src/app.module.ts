@@ -1,0 +1,171 @@
+import { Logger, MiddlewareConsumer, Module, NestModule, OnModuleInit } from '@nestjs/common';
+import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { InjectDataSource, TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '@thallesp/nestjs-better-auth';
+import { PrometheusModule } from '@willsoto/nestjs-prometheus';
+import { LoggerModule } from 'nestjs-pino';
+import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
+import { DataSource, DataSourceOptions } from 'typeorm';
+import { AdminMiddleware, AdminModule } from '#/admin';
+import { AppConfigModule, ConfigService, getDatabaseConfig, getLoggerConfig } from '#/app/config';
+import { getTrustedOrigins } from '#/app/cors';
+import { HealthModule } from '#/app/health/health.module';
+import { MetricsController } from '#/app/metrics/metrics.controller';
+import { AppController } from '#/app.controller';
+import { AppService } from '#/app.service';
+import { type BetterAuthOtpType, getBetterAuthConfig } from '#/auth/auth.config';
+import { AuthControllersModule } from '#/auth/auth.module';
+import { BillingModule } from '#/billing/billing.module';
+import { ChatModule } from '#/chat/chat.module';
+import { MastraModule } from '#/mastra-module/mastra.module';
+import { MediaModule } from '#/media';
+import { NotificationsModule, NotificationsService, NotificationType } from '#/notifications';
+import { UsageModule } from '#/usage/usage.module';
+
+@Module({
+  imports: [
+    // AppConfigModule is @Global() and includes ConfigModule.forRoot() inside
+    // This makes ConfigService available throughout the app without additional imports
+    // for other modules. No need for { imports: [ConfigModule] } anywhere else.
+    AppConfigModule,
+    LoggerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: getLoggerConfig,
+    }),
+    PrometheusModule.register({
+      controller: MetricsController,
+    }),
+    HealthModule,
+    TypeOrmModule.forRootAsync({
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get('DATABASE_URL');
+        const appEnv = configService.get('APP_ENV');
+        const config = getDatabaseConfig(databaseUrl);
+
+        return {
+          ...config,
+          // Retry connections based on where code is deployed (APP_ENV)
+          // Production-like environments (production, stage) = retries for reliability
+          // Development/test environments = fail fast for immediate feedback
+          retryAttempts: ['prod', 'stage'].includes(appEnv) ? 3 : 0,
+        };
+      },
+      // dataSource receives the configured DataSourceOptions
+      // and returns a Promise<DataSource>.
+      dataSourceFactory: async (options: DataSourceOptions) => {
+        const logger = new Logger('TypeOrmModule');
+        const databaseUrl = 'url' in options ? options.url : '';
+
+        if (databaseUrl) {
+          // Mask password in URL for logging
+          const maskedUrl = databaseUrl.replace(/:\/\/[^:]+:([^@]+)@/, (match, password) =>
+            match.replace(password, '***')
+          );
+          logger.log(`Connecting to database: ${maskedUrl}`);
+        } else {
+          logger.warn('DATABASE_URL is not set, database connection may fail');
+        }
+
+        const dataSource = await new DataSource(options).initialize();
+        return dataSource;
+      },
+      inject: [ConfigService],
+    }),
+    NotificationsModule,
+    AuthModule.forRootAsync({
+      imports: [NotificationsModule],
+      useFactory: (configService: ConfigService, notificationsService: NotificationsService) => {
+        const databaseUrl = configService.get('DATABASE_URL');
+        const secret = configService.get('AUTH_SECRET');
+        const publicUrl = configService.get('PUBLIC_URL');
+        const corsOriginsString = configService.get('CORS_ORIGINS') || '';
+        const appEnv = configService.get('APP_ENV');
+
+        // Map Better Auth OTP types to notification types
+        const otpTypeMap: Record<BetterAuthOtpType, NotificationType> = {
+          'sign-in': NotificationType.OTP_SIGN_IN,
+          'email-verification': NotificationType.OTP_EMAIL_VERIFICATION,
+          'forget-password': NotificationType.OTP_PASSWORD_RESET,
+        };
+
+        const figmaClientId = configService.get('FIGMA_CLIENT_ID') || undefined;
+        const figmaClientSecret = configService.get('FIGMA_CLIENT_SECRET') || undefined;
+
+        return {
+          auth: getBetterAuthConfig({
+            databaseUrl,
+            secret,
+            baseURL: publicUrl,
+            trustedOrigins: getTrustedOrigins(corsOriginsString),
+            isTest: appEnv === 'test',
+            isProd: appEnv === 'prod',
+            figmaClientId,
+            figmaClientSecret,
+            sendOtp: async ({ email, otp, type }) => {
+              const notificationType = otpTypeMap[type];
+              await notificationsService.send(notificationType, {
+                recipient: email,
+                otp,
+                expiresInMinutes: 5,
+              });
+            },
+          }),
+        };
+      },
+      inject: [ConfigService, NotificationsService],
+    }),
+    AdminModule.forRoot(), // Register all admin entities from adminRegistry
+    AuthControllersModule,
+    MediaModule,
+    ...(process.env.ANTHROPIC_API_KEY ? [MastraModule, ChatModule] : []),
+    BillingModule,
+    UsageModule,
+  ],
+  controllers: [AppController],
+  providers: [
+    AppService,
+    {
+      provide: APP_PIPE,
+      useClass: ZodValidationPipe,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ZodSerializerInterceptor,
+    },
+  ],
+})
+export class AppModule implements NestModule, OnModuleInit {
+  private readonly logger = new Logger(AppModule.name);
+
+  constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(AdminMiddleware).forRoutes('admin/*');
+  }
+
+  async onModuleInit() {
+    try {
+      // Check if database is connected
+      if (this.dataSource.isInitialized) {
+        this.logger.log('Database connection established successfully');
+      }
+
+      this.logger.log('Running database migrations...');
+      const migrations = await this.dataSource.runMigrations();
+
+      if (migrations.length > 0) {
+        this.logger.log(
+          `Successfully executed ${migrations.length} migration(s): ${migrations
+            .map((m) => m.name)
+            .join(', ')}`
+        );
+      } else {
+        this.logger.log('No pending migrations to execute.');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to run migrations: ${error}`);
+      this.logger.error('Application will not start due to migration failure.');
+      process.exit(1); // Exit the application if migrations fail
+    }
+  }
+}
