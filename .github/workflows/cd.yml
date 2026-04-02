@@ -13,7 +13,7 @@ jobs:
   api:
     uses: ./.github/workflows/_docker-build.yml
     with:
-      image: ghcr.io/${{ github.repository_owner }}/figma-design-agent-api
+      image: ghcr.io/${{ github.repository_owner }}/mastra-starter-api
       target: api
       push: true
       platforms: linux/amd64
