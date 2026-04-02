@@ -1,6 +1,9 @@
 {
   "name": "mastra-starter",
   "private": true,
+  "description": "Modern AI agent starter — Mastra + NestJS 11 + CopilotKit",
+  "license": "MIT",
+  "keywords": ["mastra", "nestjs", "copilotkit", "ai-agents", "typescript", "better-auth"],
   "scripts": {
     "dev": "pnpm --filter @mastra-starter/api dev",
     "dev:web": "pnpm --filter @mastra-starter/web dev",
