@@ -82,7 +82,7 @@ jobs:
       # GitHub Container Registry login
       - name: Log in to GitHub Container Registry
         if: inputs.push && env.REGISTRY_PROVIDER == 'github'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
