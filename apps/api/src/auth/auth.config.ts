@@ -41,14 +41,6 @@ export interface BetterAuthConfigOptions {
    */
   isProd: boolean;
   /**
-   * Figma OAuth client ID (optional, enables Figma social login when provided)
-   */
-  figmaClientId?: string;
-  /**
-   * Figma OAuth client secret (optional, enables Figma social login when provided)
-   */
-  figmaClientSecret?: string;
-  /**
    * Optional callback to send OTP emails.
    * If not provided, OTP sending will be disabled (logs a warning).
    */
@@ -73,8 +65,6 @@ export function getBetterAuthConfig({
   isProd,
   sendOtp,
   otpExpiresIn = 300,
-  figmaClientId,
-  figmaClientSecret,
 }: BetterAuthConfigOptions) {
   return betterAuth({
     database: new Pool({
@@ -85,16 +75,6 @@ export function getBetterAuthConfig({
     basePath: '/auth',
     trustedOrigins,
     hooks: {}, // minimum required to use hook decorators
-    ...(figmaClientId && figmaClientSecret
-      ? {
-          socialProviders: {
-            figma: {
-              clientId: figmaClientId,
-              clientSecret: figmaClientSecret,
-            },
-          },
-        }
-      : {}),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: !isTest, // Disable email verification in test environment

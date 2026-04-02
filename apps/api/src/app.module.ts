@@ -1,4 +1,4 @@
-import { Logger, MiddlewareConsumer, Module, NestModule, OnModuleInit } from '@nestjs/common';
+import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { InjectDataSource, TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '@thallesp/nestjs-better-auth';
@@ -6,7 +6,6 @@ import { PrometheusModule } from '@willsoto/nestjs-prometheus';
 import { LoggerModule } from 'nestjs-pino';
 import { ZodSerializerInterceptor, ZodValidationPipe } from 'nestjs-zod';
 import { DataSource, DataSourceOptions } from 'typeorm';
-import { AdminMiddleware, AdminModule } from '#/admin';
 import { AppConfigModule, ConfigService, getDatabaseConfig, getLoggerConfig } from '#/app/config';
 import { getTrustedOrigins } from '#/app/cors';
 import { HealthModule } from '#/app/health/health.module';
@@ -14,13 +13,9 @@ import { MetricsController } from '#/app/metrics/metrics.controller';
 import { AppController } from '#/app.controller';
 import { AppService } from '#/app.service';
 import { type BetterAuthOtpType, getBetterAuthConfig } from '#/auth/auth.config';
-import { AuthControllersModule } from '#/auth/auth.module';
-import { BillingModule } from '#/billing/billing.module';
 import { ChatModule } from '#/chat/chat.module';
 import { MastraModule } from '#/mastra-module/mastra.module';
-import { MediaModule } from '#/media';
 import { NotificationsModule, NotificationsService, NotificationType } from '#/notifications';
-import { UsageModule } from '#/usage/usage.module';
 
 @Module({
   imports: [
@@ -88,9 +83,6 @@ import { UsageModule } from '#/usage/usage.module';
           'forget-password': NotificationType.OTP_PASSWORD_RESET,
         };
 
-        const figmaClientId = configService.get('FIGMA_CLIENT_ID') || undefined;
-        const figmaClientSecret = configService.get('FIGMA_CLIENT_SECRET') || undefined;
-
         return {
           auth: getBetterAuthConfig({
             databaseUrl,
@@ -99,8 +91,6 @@ import { UsageModule } from '#/usage/usage.module';
             trustedOrigins: getTrustedOrigins(corsOriginsString),
             isTest: appEnv === 'test',
             isProd: appEnv === 'prod',
-            figmaClientId,
-            figmaClientSecret,
             sendOtp: async ({ email, otp, type }) => {
               const notificationType = otpTypeMap[type];
               await notificationsService.send(notificationType, {
@@ -114,12 +104,7 @@ import { UsageModule } from '#/usage/usage.module';
       },
       inject: [ConfigService, NotificationsService],
     }),
-    AdminModule.forRoot(), // Register all admin entities from adminRegistry
-    AuthControllersModule,
-    MediaModule,
     ...(process.env.ANTHROPIC_API_KEY ? [MastraModule, ChatModule] : []),
-    BillingModule,
-    UsageModule,
   ],
   controllers: [AppController],
   providers: [
@@ -134,14 +119,10 @@ import { UsageModule } from '#/usage/usage.module';
     },
   ],
 })
-export class AppModule implements NestModule, OnModuleInit {
+export class AppModule implements OnModuleInit {
   private readonly logger = new Logger(AppModule.name);
 
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
-
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(AdminMiddleware).forRoutes('admin/*');
-  }
 
   async onModuleInit() {
     try {

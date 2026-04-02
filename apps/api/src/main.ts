@@ -66,8 +66,7 @@ async function bootstrap() {
   // Get config service for CORS configuration and global filter
   const configService = app.get(ConfigService);
 
-  // Setup CORS - allow all origins for Figma iframe compatibility
-  // Figma iframe origin is "null", so we use origin: true for MVP
+  // Setup CORS
   app.enableCors({
     origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

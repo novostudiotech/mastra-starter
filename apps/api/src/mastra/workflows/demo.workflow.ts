@@ -5,7 +5,7 @@ const executeStep = createStep({
   id: 'execute',
   inputSchema: z.object({
     userMessage: z.string(),
-    selectionContext: z.string().optional(),
+    context: z.string().optional(),
     previousFeedback: z.string().optional(),
   }),
   outputSchema: z.object({
@@ -38,11 +38,11 @@ const reviewStep = createStep({
   },
 });
 
-export const designWorkflow = createWorkflow({
-  id: 'design-task',
+export const demoWorkflow = createWorkflow({
+  id: 'demo-task',
   inputSchema: z.object({
     userMessage: z.string(),
-    selectionContext: z.string().optional(),
+    context: z.string().optional(),
   }),
   outputSchema: z.object({
     verdict: z.enum(['APPROVED', 'ISSUES_FOUND']),
@@ -52,4 +52,4 @@ export const designWorkflow = createWorkflow({
   .then(executeStep)
   .then(reviewStep);
 
-designWorkflow.commit();
+demoWorkflow.commit();

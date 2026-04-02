@@ -1,19 +1,16 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { Agent } from '@mastra/core/agent';
-import { reviewTools } from '../tools/review-tools';
+import { reviewerTools } from '../tools/demo-tools';
 
 export const reviewerAgent = new Agent({
   id: 'reviewer',
   name: 'reviewer',
-  instructions: `You are a design QA reviewer. You check completed work against the original task.
+  instructions: `You are a QA reviewer. You check completed work against the original task.
 
 ## What you check
-1. Completeness — all requested elements exist
-2. Naming — layers are named descriptively (not "Rectangle 1")
-3. Structure — Auto Layout used where appropriate
-4. Spacing — consistent spacing (4/8/12/16/24/32/48px grid)
-5. Alignment — elements properly aligned
-6. Hierarchy — proper nesting (frame > elements, not flat)
+1. Completeness — all requested items exist
+2. Correctness — the result matches what was asked
+3. Quality — the output is well-structured and clear
 
 ## Your response format
 If issues found:
@@ -25,9 +22,9 @@ If all good:
   APPROVED: [brief summary of what looks good]
 
 ## Important
-- Be specific in fix instructions (e.g., "rename 'Rectangle 5' to 'Card Background'")
-- Don't nitpick — focus on structural and naming issues
-- Max 5 issues per review to avoid overwhelming the designer agent`,
+- Be specific in fix instructions
+- Don't nitpick — focus on significant issues
+- Max 5 issues per review`,
   model: anthropic('claude-sonnet-4-20250514'),
-  tools: reviewTools,
+  tools: reviewerTools,
 });

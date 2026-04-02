@@ -1,9 +1,9 @@
 import { Mastra } from '@mastra/core';
 import { Memory } from '@mastra/memory';
 import { PostgresStore } from '@mastra/pg';
-import { designerAgent } from './agents/designer.agent';
+import { assistantAgent } from './agents/assistant.agent';
 import { reviewerAgent } from './agents/reviewer.agent';
-import { designWorkflow } from './workflows/design.workflow';
+import { demoWorkflow } from './workflows/demo.workflow';
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set');
@@ -14,7 +14,7 @@ export const mastra = createMastra(process.env.DATABASE_URL);
 
 export function createMastra(databaseUrl: string) {
   const storage = new PostgresStore({
-    id: 'figma-agent-storage',
+    id: 'mastra-starter-storage',
     connectionString: databaseUrl,
   });
 
@@ -27,8 +27,8 @@ export function createMastra(databaseUrl: string) {
   });
 
   return new Mastra({
-    agents: { designer: designerAgent, reviewer: reviewerAgent },
-    workflows: { designTask: designWorkflow },
+    agents: { assistant: assistantAgent, reviewer: reviewerAgent },
+    workflows: { demoTask: demoWorkflow },
     memory: { chat: memory },
     storage,
   });

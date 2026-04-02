@@ -61,22 +61,8 @@ const envSchema = z.object({
     .transform((val) => (val === '' ? undefined : val)),
   SENTRY_ENVIRONMENT: z.string().optional(),
 
-  // S3-compatible storage (optional - for media uploads)
-  // If not configured, media upload endpoint returns 503
-  S3_REGION: z.string().optional(),
-  S3_ENDPOINT: z.string().url().optional(),
-  S3_BUCKET: z.string().optional(),
-  S3_ACCESS_KEY: z.string().optional(),
-  S3_SECRET_KEY: z.string().optional(),
-  S3_CDN_URL: z.string().url().optional(),
-  S3_PREFIX: z.string().optional(), // Defaults to APP_ENV if not set
-
   // AI / LLM
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-
-  // Figma OAuth (optional - enables Figma social login when provided)
-  FIGMA_CLIENT_ID: z.string().optional(),
-  FIGMA_CLIENT_SECRET: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
