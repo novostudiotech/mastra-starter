@@ -52,7 +52,7 @@
     "@thallesp/nestjs-better-auth": "^2.2.5",
     "@willsoto/nestjs-prometheus": "^6.0.2",
     "better-auth": "1.4.18",
-    "class-validator": "^0.14.3",
+    "class-validator": "^0.15.1",
     "compression": "^1.8.1",
     "fast-redact": "^3.5.0",
     "graphql": "^16.12.0",
